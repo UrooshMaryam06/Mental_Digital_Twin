@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  api:
+    build: .
+    container_name: energy_forecast_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts
+    restart: unless-stopped
