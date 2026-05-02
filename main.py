@@ -51,6 +51,14 @@ def load(name):
     with open(path, 'rb') as f:
         return pickle.load(f)
 
+
+def load_optional(name, default):
+    path = os.path.join(ARTIFACTS, name)
+    if not os.path.exists(path):
+        return default
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
 print("Loading artifacts...")
 reg_demand      = load('reg_demand.pkl')
 reg_price       = load('reg_price.pkl')
@@ -68,6 +76,7 @@ label_map       = load('label_map.pkl')
 inv_map         = load('inv_map.pkl')
 REC_TABLE       = load('rec_table.pkl')
 thresholds      = load('thresholds.pkl')
+assoc_rules     = load_optional('association_rules.pkl', pd.DataFrame())
 print("All artifacts loaded.")
 
 # ============================================================
@@ -150,6 +159,13 @@ class BothInput(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+class AssociationQuery(BaseModel):
+    demand_level: Optional[str] = Field(None, description="LOW, MED, or HIGH")
+    price_level: Optional[str] = Field(None, description="LOW, MED, or HIGH")
+    renewable_level: Optional[str] = Field(None, description="LOW, MED, or HIGH")
+    top_n: int = Field(5, ge=1, le=20)
 
 
 # ============================================================
@@ -442,6 +458,49 @@ def cluster_profiles():
     avail = [c for c in cols if c in profile_df.columns]
     prof  = profile_df[avail + ['cluster']].groupby('cluster').mean().round(2)
     return prof.to_dict(orient='index')
+
+
+# ============================================================
+# ASSOCIATION RULES ENDPOINTS
+# ============================================================
+
+@app.post("/associations/query", tags=["Association Rules"])
+def get_associations(query: AssociationQuery):
+    """
+    Find association rules matching a given energy state.
+    For example: given demand=HIGH and renewable=LOW, what price rules apply?
+    """
+    try:
+        if assoc_rules is None or len(assoc_rules) == 0:
+            raise HTTPException(status_code=404, detail="Association rules are not available. Run src/association_rules_mining.py first.")
+        from src.association_rules_endpoint import query_rules
+        results = query_rules(
+            assoc_rules,
+            demand_level=query.demand_level,
+            price_level=query.price_level,
+            renewable_level=query.renewable_level,
+            top_n=query.top_n
+        )
+        return {
+            'query': query.dict(),
+            'rules_found': len(results),
+            'rules': results
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/associations/top", tags=["Association Rules"])
+def get_top_associations(n: int = 10):
+    """Return top N association rules by lift."""
+    if assoc_rules is None or len(assoc_rules) == 0:
+        raise HTTPException(status_code=404, detail="Association rules are not available. Run src/association_rules_mining.py first.")
+    top = assoc_rules.head(n).copy()
+    top['antecedents'] = top['antecedents'].apply(lambda x: sorted(list(x)))
+    top['consequents'] = top['consequents'].apply(lambda x: sorted(list(x)))
+    return top[['antecedents', 'consequents', 'support', 'confidence', 'lift']].to_dict(orient='records')
 
 
 # ============================================================

@@ -23,6 +23,8 @@ pytz==2023.3.post1
 # Optional: Deep Learning (if needed for advanced models)
 # tensorflow==2.14.0
 
+mlxtend==0.23.1
+
 # Development & Testing (optional)
 pytest==7.4.3
 pytest-asyncio==0.21.1

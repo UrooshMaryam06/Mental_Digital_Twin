@@ -135,6 +135,13 @@ def save_models(models: Dict[str, Any], artifacts_dir: Path, prefix: str = "mode
     return paths
 
 
+def run_association_task(df=None):
+    """Mine association rules from the processed energy dataframe."""
+    from src.association_rules_mining import run_association_mining
+    rules = run_association_mining()
+    return f"Association mining complete: {len(rules)} rules found"
+
+
 def write_metadata(metadata: Dict[str, Any], artifacts_dir: Path) -> Path:
     ensure_artifacts_dir(artifacts_dir)
     p = artifacts_dir / "model_metadata.json"
@@ -168,12 +175,14 @@ def build_and_run_pipeline(csv_path: Path, artifacts_dir: Path = Path("artifacts
     clf_paths = save_models(clf_results, artifacts_dir, prefix="clf")
 
     cluster_info = cluster_and_persist(X, artifacts_dir)
+    assoc_result = run_association_task(df)
 
     metadata = {
         "regressors": reg_paths,
         "classifiers": clf_paths,
         "features": list(feature_cols),
         "cluster_profiles": cluster_info,
+        "association_rules": assoc_result,
     }
     meta_path = write_metadata(metadata, artifacts_dir)
 
