@@ -1,0 +1,74 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 308B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.10-slim
+#2 DONE 1.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 97B done
+#3 DONE 0.0s
+
+#4 [1/7] FROM docker.io/library/python:3.10-slim@sha256:cdbf8193cee2e31639ea8ea85ffdd8fa5cce98ee9abfde96ea5f329490048831
+#4 resolve docker.io/library/python:3.10-slim@sha256:cdbf8193cee2e31639ea8ea85ffdd8fa5cce98ee9abfde96ea5f329490048831 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 563B 0.0s done
+#5 DONE 0.0s
+
+#6 [2/7] WORKDIR /app
+#6 CACHED
+
+#7 [3/7] COPY requirements.txt .
+#7 CACHED
+
+#8 [4/7] RUN pip install --no-cache-dir -r requirements.txt
+#8 CACHED
+
+#9 [5/7] RUN pip install nbconvert jupyter
+#9 CACHED
+
+#10 [6/7] COPY . .
+#10 DONE 0.0s
+
+#11 [7/7] RUN python modeltraining.py
+#11 2.604 Traceback (most recent call last):
+#11 2.604   File "/app/modeltraining.py", line 43, in <module>
+#11 2.604     df = pd.read_csv('energy_dataset.csv')
+#11 2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 948, in read_csv
+#11 2.604     return _read(filepath_or_buffer, kwds)
+#11 2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 611, in _read
+#11 2.604     parser = TextFileReader(filepath_or_buffer, **kwds)
+#11 2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 1448, in __init__
+#11 2.604     self._engine = self._make_engine(f, self.engine)
+#11 2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 1705, in _make_engine
+#11 2.604     self.handles = get_handle(
+#11 2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/common.py", line 863, in get_handle
+#11 2.604     handle = open(
+#11 2.604 FileNotFoundError: [Errno 2] No such file or directory: 'energy_dataset.csv'
+#11 ERROR: process "/bin/sh -c python modeltraining.py" did not complete successfully: exit code: 1
+------
+ > [7/7] RUN python modeltraining.py:
+2.604     return _read(filepath_or_buffer, kwds)
+2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 611, in _read
+2.604     parser = TextFileReader(filepath_or_buffer, **kwds)
+2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 1448, in __init__
+2.604     self._engine = self._make_engine(f, self.engine)
+2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 1705, in _make_engine
+2.604     self.handles = get_handle(
+2.604   File "/usr/local/lib/python3.10/site-packages/pandas/io/common.py", line 863, in get_handle
+2.604     handle = open(
+2.604 FileNotFoundError: [Errno 2] No such file or directory: 'energy_dataset.csv'
+------
+Dockerfile:7
+--------------------
+   5 |     RUN pip install nbconvert jupyter
+   6 |     COPY . .
+   7 | >>> RUN python modeltraining.py
+   8 |     EXPOSE 8000
+   9 |     CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c python modeltraining.py" did not complete successfully: exit code: 1
