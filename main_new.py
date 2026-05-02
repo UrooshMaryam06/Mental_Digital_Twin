@@ -37,6 +37,12 @@ app = FastAPI(
     description="MLOps Pipeline for Energy Grid Management",
     version="1.0.0"
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ============================================================
 # STARTUP: LOAD ALL ARTIFACTS
