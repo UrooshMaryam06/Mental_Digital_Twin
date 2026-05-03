@@ -2,6 +2,7 @@
 Forecasting page: build a feature vector from sliders, call /predict/both,
 display 12-step ahead forecast from the historical dataset.
 """
+import datetime
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -23,55 +24,47 @@ df = load_dataset()
 
 # ── Controls ──────────────────────────────────────────────────────────────────
 st.markdown("### Input Features")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    hour     = st.slider("Hour", 0, 23, st.session_state.get("selected_hour", 12))
-    month    = st.slider("Month", 1, 12, 6)
-    is_wkend = st.checkbox("Weekend")
+    st.markdown("##### Target Timestamp")
+    date_val = st.date_input("Date", datetime.date(2018, 5, 1))
+    time_val = st.time_input("Time", datetime.time(12, 0))
+    timestamp = f"{date_val} {time_val}"
 with col2:
-    solar    = st.number_input("Solar generation (MW)",    0.0, 10000.0, 3000.0, step=100.0)
-    wind     = st.number_input("Wind onshore (MW)",        0.0, 20000.0, 8000.0, step=100.0)
-    nuclear  = st.number_input("Nuclear (MW)",             0.0, 10000.0, 7000.0, step=100.0)
+    st.markdown("##### Renewable Gen (MW)")
+    solar = st.number_input("Solar (MW)", 0.0, 20000.0, 5000.0, step=100.0)
+    wind  = st.number_input("Wind Onshore (MW)", 0.0, 30000.0, 8000.0, step=100.0)
+    hydro = st.number_input("Hydro Water Res. (MW)", 0.0, 20000.0, 2000.0, step=100.0)
 with col3:
-    gas      = st.number_input("Fossil gas (MW)",          0.0, 15000.0, 5000.0, step=100.0)
-    coal     = st.number_input("Fossil hard coal (MW)",    0.0, 12000.0, 2000.0, step=100.0)
-    hydro    = st.number_input("Hydro water reservoir (MW)",0.0, 8000.0, 2000.0, step=100.0)
-with col4:
-    demand_lag_1h   = st.number_input("Demand lag 1h (MW)",       0.0, 50000.0, 28000.0, step=100.0)
-    demand_lag_24h  = st.number_input("Demand lag 24h (MW)",      0.0, 50000.0, 27500.0, step=100.0)
-    demand_lag_168h = st.number_input("Demand lag 168h (MW)",     0.0, 50000.0, 27000.0, step=100.0)
-    price_lag_1h    = st.number_input("Price lag 1h (EUR/MWh)",   0.0, 1000.0, 50.0, step=1.0)
-    price_lag_24h   = st.number_input("Price lag 24h (EUR/MWh)",  0.0, 1000.0, 48.0, step=1.0)
-    load_fc  = st.number_input("Load forecast (MW)",              0.0, 50000.0, 28000.0, step=100.0)
+    st.markdown("##### Non-Renewable (MW)")
+    gas     = st.number_input("Fossil Gas (MW)", 0.0, 20000.0, 4000.0, step=100.0)
+    coal    = st.number_input("Fossil Hard Coal (MW)", 0.0, 20000.0, 1500.0, step=100.0)
+    nuclear = st.number_input("Nuclear (MW)", 0.0, 20000.0, 7000.0, step=100.0)
 
-# Build the feature dict that matches FeaturesInput in main.py
-# Compute aggregated features expected by the API: renewable, fossil, nuclear, renewable_pct
-renewable = solar + wind + hydro
-fossil = gas + coal
-total_gen = renewable + fossil + nuclear if (renewable + fossil + nuclear) != 0 else 0.0
-renewable_pct = (renewable / total_gen * 100.0) if total_gen != 0 else 0.0
+st.markdown("##### External Forecasts")
+fc1, fc2, fc3, fc4 = st.columns(4)
+with fc1:
+    fc_wind = st.number_input("Forecast Wind Onshore (MW)", 0.0, 30000.0, 8000.0, step=100.0)
+with fc2:
+    fc_solar = st.number_input("Forecast Solar (MW)", 0.0, 20000.0, 5000.0, step=100.0)
+with fc3:
+    load_fc = st.number_input("Total Load Forecast (MW)", 0.0, 50000.0, 28000.0, step=100.0)
+with fc4:
+    fc_price = st.number_input("Price Day Ahead (EUR/MWh)", 0.0, 1000.0, 50.0, step=1.0)
 
 features = {
-    "hour": hour,
-    "month": month,
-    "is_weekend": int(is_wkend),
+    "timestamp": timestamp,
     "generation solar": solar,
     "generation wind onshore": wind,
     "generation nuclear": nuclear,
     "generation fossil gas": gas,
     "generation fossil hard coal": coal,
     "generation hydro water reservoir": hydro,
-    "renewable": renewable,
-    "fossil": fossil,
-    "nuclear": nuclear,
-    "renewable_pct": renewable_pct,
-    "demand_lag_1h": demand_lag_1h,
-    "demand_lag_24h": demand_lag_24h,
-    "demand_lag_168h": demand_lag_168h,
-    "price_lag_1h": price_lag_1h,
-    "price_lag_24h": price_lag_24h,
-    "total_load_forecast": load_fc,
+    "forecast wind onshore day ahead": fc_wind,
+    "forecast solar day ahead": fc_solar,
+    "total load forecast": load_fc,
+    "price day ahead": fc_price
 }
 
 if st.button("Run Prediction"):
@@ -79,8 +72,8 @@ if st.button("Run Prediction"):
     if result:
         st.divider()
         c1, c2 = st.columns(2)
-        c1.metric("Predicted Demand", f"{result.get('demand_prediction', 0):,.0f} MW")
-        c2.metric("Predicted Price",  f"€{result.get('price_prediction', 0):.2f} / MWh")
+        c1.metric("Predicted Demand", f"{result.get('predicted_demand_12h_MW', 0):,.0f} MW")
+        c2.metric("Predicted Price",  f"€{result.get('predicted_price_12h_EUR', 0):.2f} / MWh")
 
 # ── Historical actual vs forecast chart ──────────────────────────────────────
 if not df.empty:

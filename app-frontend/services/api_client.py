@@ -1,6 +1,6 @@
 """
 Centralized API client for the Electricity Forecasting FastAPI backend.
-All endpoints from main.py are wrapped here.
+All endpoints from `main_new_v2` are wrapped here.
 """
 
 import requests

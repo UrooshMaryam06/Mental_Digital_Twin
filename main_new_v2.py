@@ -66,6 +66,15 @@ def load(name):
     with open(path, 'rb') as f:
         return pickle.load(f)
 
+
+def load_optional(name, default):
+    """Load an artifact if present, otherwise return `default`."""
+    path = os.path.join(ARTIFACTS, name)
+    if not os.path.exists(path):
+        return default
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
 print("Loading artifacts...")
 reg_demand      = load('reg_demand.pkl')
 reg_price       = load('reg_price.pkl')
@@ -80,13 +89,34 @@ profile_df      = load('profile_df.pkl')
 demand_features = load('demand_features.pkl')
 price_features  = load('price_features.pkl')
 label_map       = load('label_map.pkl')
-inv_map         = load('inv_map.pkl')
+# `inv_map` may not be present in older artifact sets — load optionally and build a fallback.
+inv_map = load_optional('inv_map.pkl', None)
+if inv_map is None:
+    try:
+        if isinstance(label_map, dict):
+            inv_map = {int(v): k for k, v in label_map.items()}
+        elif hasattr(le_demand, 'classes_'):
+            inv_map = {i: c for i, c in enumerate(le_demand.classes_)}
+        else:
+            inv_map = {0: 'Low', 1: 'Medium', 2: 'High'}
+    except Exception:
+        inv_map = {0: 'Low', 1: 'Medium', 2: 'High'}
 REC_TABLE       = load('rec_table.pkl')
 thresholds      = load('thresholds.pkl')
 print("All artifacts loaded.")
 
-# Load and sanitise association rules (if CSV artifact exists)
-assoc_rules = None
+try:
+    print("Loading historical dataset for feature extraction...")
+    HIST_DF = pd.read_csv('energy_dataset.csv')
+    HIST_DF['time'] = pd.to_datetime(HIST_DF['time'], utc=True)
+    HIST_DF = HIST_DF.sort_values('time').set_index('time')
+    print("Historical dataset loaded successfully.")
+except Exception as e:
+    print(f"Warning: Failed to load energy_dataset.csv. Lag feature extraction will fall back to defaults. Error: {e}")
+    HIST_DF = pd.DataFrame()
+
+assoc_rules = load_optional('association_rules.pkl', pd.DataFrame())
+# Load and sanitise association rules (CSV takes precedence if present)
 def _sanitize_assoc_df(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or len(df) == 0:
         return df
@@ -126,6 +156,12 @@ if os.path.exists(csv_path):
         assoc_rules = _sanitize_assoc_df(assoc_rules)
     except Exception:
         assoc_rules = None
+else:
+    # sanitize the pickle-loaded rules if present
+    try:
+        assoc_rules = _sanitize_assoc_df(assoc_rules)
+    except Exception:
+        pass
 
 
 # ============================================================
@@ -136,78 +172,25 @@ if os.path.exists(csv_path):
 # Every field maps directly to a feature the ML model uses.
 # ============================================================
 
-class DemandInput(BaseModel):
-    hour:                          int   = Field(..., ge=0, le=23,  description="Hour of day (0-23)")
-    day_of_week:                   int   = Field(..., ge=0, le=6,   description="Day of week (0=Mon, 6=Sun)")
-    month:                         int   = Field(..., ge=1, le=12,  description="Month (1-12)")
-    is_weekend:                    int   = Field(..., ge=0, le=1)
-    demand_lag_1h:                 float = Field(..., description="Demand 1 hour ago (MW)")
-    demand_lag_24h:                float = Field(..., description="Demand 24 hours ago (MW)")
-    demand_lag_168h:               float = Field(..., description="Demand 168 hours ago (MW)")
-    price_lag_1h:                  float = Field(..., description="Price 1 hour ago (EUR/MWh)")
-    price_lag_24h:                 float = Field(..., description="Price 24 hours ago (EUR/MWh)")
-    renewable:                     float = Field(..., description="Total renewable generation (MW)")
-    fossil:                        float = Field(..., description="Total fossil generation (MW)")
-    nuclear:                       float = Field(..., description="Nuclear generation (MW)")
-    renewable_pct:                 float = Field(..., description="Renewable as % of total generation")
-    demand_avg_24h:                float = Field(..., description="Rolling 24h mean demand (MW)")
-    price_avg_24h:                 float = Field(..., description="Rolling 24h mean price (EUR/MWh)")
+class PredictionInput(BaseModel):
+    timestamp: str = Field(..., description="Target time (e.g., '2018-05-01 12:00:00')")
+    generation_solar: float = Field(0.0, alias="generation solar")
+    generation_wind_onshore: float = Field(0.0, alias="generation wind onshore")
+    generation_nuclear: float = Field(0.0, alias="generation nuclear")
+    generation_fossil_gas: float = Field(0.0, alias="generation fossil gas")
+    generation_fossil_hard_coal: float = Field(0.0, alias="generation fossil hard coal")
+    generation_hydro_water_reservoir: float = Field(0.0, alias="generation hydro water reservoir")
     forecast_wind_onshore_day_ahead: Optional[float] = Field(None, alias="forecast wind onshore day ahead")
-    forecast_solar_day_ahead:      Optional[float]   = Field(None, alias="forecast solar day ahead")
-    total_load_forecast:           Optional[float]   = Field(None, alias="total load forecast")
+    forecast_solar_day_ahead: Optional[float] = Field(None, alias="forecast solar day ahead")
+    total_load_forecast: Optional[float] = Field(None, alias="total load forecast")
+    price_day_ahead: Optional[float] = Field(None, alias="price day ahead")
 
     class Config:
         populate_by_name = True
 
-
-class PriceInput(BaseModel):
-    hour:                          int   = Field(..., ge=0, le=23)
-    day_of_week:                   int   = Field(..., ge=0, le=6)
-    month:                         int   = Field(..., ge=1, le=12)
-    is_weekend:                    int   = Field(..., ge=0, le=1)
-    price_lag_1h:                  float
-    price_lag_24h:                 float
-    demand_lag_1h:                 float
-    demand_lag_24h:                float
-    renewable:                     float
-    fossil:                        float
-    nuclear:                       float
-    renewable_pct:                 float
-    price_avg_24h:                 float
-    demand_avg_24h:                float
-    forecast_wind_onshore_day_ahead: Optional[float] = Field(None, alias="forecast wind onshore day ahead")
-    forecast_solar_day_ahead:      Optional[float]   = Field(None, alias="forecast solar day ahead")
-    total_load_forecast:           Optional[float]   = Field(None, alias="total load forecast")
-    price_day_ahead:               Optional[float]   = Field(None, alias="price day ahead")
-
-    class Config:
-        populate_by_name = True
-
-
-class BothInput(BaseModel):
-    """Combined input — contains all fields needed for both models."""
-    hour:                          int   = Field(..., ge=0, le=23)
-    day_of_week:                   int   = Field(..., ge=0, le=6)
-    month:                         int   = Field(..., ge=1, le=12)
-    is_weekend:                    int   = Field(..., ge=0, le=1)
-    demand_lag_1h:                 float
-    demand_lag_24h:                float
-    demand_lag_168h:               float
-    price_lag_1h:                  float
-    price_lag_24h:                 float
-    renewable:                     float
-    fossil:                        float
-    nuclear:                       float
-    renewable_pct:                 float
-    demand_avg_24h:                float
-    price_avg_24h:                 float
-    forecast_wind_onshore_day_ahead: Optional[float] = Field(None, alias="forecast wind onshore day ahead")
-    forecast_solar_day_ahead:      Optional[float]   = Field(None, alias="forecast solar day ahead")
-    total_load_forecast:           Optional[float]   = Field(None, alias="total load forecast")
-    price_day_ahead:               Optional[float]   = Field(None, alias="price day ahead")
-
-    class Config:
-        populate_by_name = True
+DemandInput = PredictionInput
+PriceInput = PredictionInput
+BothInput = PredictionInput
 
 
 class AssociationQuery(BaseModel):
@@ -225,13 +208,90 @@ class AssociationQuery(BaseModel):
 # that were applied during training.
 # ============================================================
 
-def add_cyclic_time(row: dict) -> dict:
-    """Add hour_sin, hour_cos, month_sin, month_cos from raw hour/month."""
-    row['hour_sin']  = np.sin(2 * np.pi * row['hour']  / 24)
-    row['hour_cos']  = np.cos(2 * np.pi * row['hour']  / 24)
-    row['month_sin'] = np.sin(2 * np.pi * row['month'] / 12)
-    row['month_cos'] = np.cos(2 * np.pi * row['month'] / 12)
-    return row
+def extract_features(raw_input: dict) -> dict:
+    """Extract and compute all required features from raw inputs and historical data."""
+    out = dict(raw_input)
+    
+    # 1. Time features
+    try:
+        ts = pd.to_datetime(out.get('timestamp', '2018-01-01 00:00:00'), utc=True)
+    except Exception:
+        ts = pd.to_datetime('2018-01-01 00:00:00', utc=True)
+        
+    out['hour'] = ts.hour
+    out['day_of_week'] = ts.dayofweek
+    out['month'] = ts.month
+    out['is_weekend'] = 1 if ts.dayofweek >= 5 else 0
+    out['hour_sin'] = np.sin(2 * np.pi * out['hour'] / 24)
+    out['hour_cos'] = np.cos(2 * np.pi * out['hour'] / 24)
+    out['month_sin'] = np.sin(2 * np.pi * out['month'] / 12)
+    out['month_cos'] = np.cos(2 * np.pi * out['month'] / 12)
+
+    # 2. Aggregations
+    solar = out.get('generation solar', out.get('generation_solar', 0.0))
+    wind = out.get('generation wind onshore', out.get('generation_wind_onshore', 0.0))
+    hydro = out.get('generation hydro water reservoir', out.get('generation_hydro_water_reservoir', 0.0))
+    gas = out.get('generation fossil gas', out.get('generation_fossil_gas', 0.0))
+    coal = out.get('generation fossil hard coal', out.get('generation_fossil_hard_coal', 0.0))
+    nuclear = out.get('generation nuclear', out.get('generation_nuclear', 0.0))
+
+    renewable = solar + wind + hydro
+    fossil = gas + coal
+    total_gen = renewable + fossil + nuclear
+    renewable_pct = (renewable / total_gen * 100.0) if total_gen > 0 else 0.0
+
+    out['renewable'] = renewable
+    out['fossil'] = fossil
+    out['nuclear'] = nuclear
+    out['renewable_pct'] = renewable_pct
+
+    # 3. Lags and Rolling Averages from historical data
+    if not HIST_DF.empty:
+        idx_1h = ts - pd.Timedelta(hours=1)
+        idx_24h = ts - pd.Timedelta(hours=24)
+        idx_168h = ts - pd.Timedelta(hours=168)
+        
+        # Helper to safely extract float from dataframe
+        def get_hist_val(idx, col, default=0.0):
+            try:
+                return float(HIST_DF.loc[idx, col])
+            except KeyError:
+                subset = HIST_DF.loc[:idx, col]
+                if not subset.empty:
+                    return float(subset.iloc[-1])
+                return default
+                
+        out['demand_lag_1h'] = get_hist_val(idx_1h, 'total load actual', 28000.0)
+        out['demand_lag_24h'] = get_hist_val(idx_24h, 'total load actual', 28000.0)
+        out['demand_lag_168h'] = get_hist_val(idx_168h, 'total load actual', 28000.0)
+        
+        out['price_lag_1h'] = get_hist_val(idx_1h, 'price actual', 50.0)
+        out['price_lag_24h'] = get_hist_val(idx_24h, 'price actual', 50.0)
+        
+        # 24h rolling average
+        try:
+            window_start = ts - pd.Timedelta(hours=24)
+            window_end = ts - pd.Timedelta(hours=1)
+            mask = (HIST_DF.index >= window_start) & (HIST_DF.index <= window_end)
+            if mask.sum() > 0:
+                out['demand_avg_24h'] = float(HIST_DF.loc[mask, 'total load actual'].mean())
+                out['price_avg_24h'] = float(HIST_DF.loc[mask, 'price actual'].mean())
+            else:
+                out['demand_avg_24h'] = out['demand_lag_1h']
+                out['price_avg_24h'] = out['price_lag_1h']
+        except Exception:
+            out['demand_avg_24h'] = 28000.0
+            out['price_avg_24h'] = 50.0
+    else:
+        out['demand_lag_1h'] = 28000.0
+        out['demand_lag_24h'] = 28000.0
+        out['demand_lag_168h'] = 28000.0
+        out['price_lag_1h'] = 50.0
+        out['price_lag_24h'] = 50.0
+        out['demand_avg_24h'] = 28000.0
+        out['price_avg_24h'] = 50.0
+        
+    return out
 
 def build_feature_row(raw: dict, feature_list: list) -> pd.DataFrame:
     # Instead of the complex alias_map loop, use a simple comprehension
@@ -247,26 +307,26 @@ def build_feature_row(raw: dict, feature_list: list) -> pd.DataFrame:
 
 
 def predict_demand(raw: dict) -> float:
-    raw = add_cyclic_time(raw)
+    raw = extract_features(raw)
     X   = build_feature_row(raw, demand_features)
     return float(reg_demand.predict(X)[0])
 
 
 def predict_price(raw: dict) -> float:
-    raw = add_cyclic_time(raw)
+    raw = extract_features(raw)
     X   = build_feature_row(raw, price_features)
     return float(reg_price.predict(X)[0])
 
 
 def classify_demand(raw: dict) -> str:
-    raw = add_cyclic_time(raw)
+    raw = extract_features(raw)
     X   = build_feature_row(raw, demand_features)
     enc = clf_demand.predict(X)[0]
     return str(le_demand.inverse_transform([enc])[0])
 
 
 def classify_price(raw: dict) -> str:
-    raw = add_cyclic_time(raw)
+    raw = extract_features(raw)
     X   = build_feature_row(raw, price_features)
     enc = clf_price.predict(X)[0]
     return str(le_price.inverse_transform([enc])[0])
@@ -274,7 +334,7 @@ def classify_price(raw: dict) -> str:
 
 def get_cluster(raw: dict) -> int:
     cols = ['hour_sin', 'hour_cos', 'renewable_pct', 'demand_lag_1h', 'price_lag_1h'] # <-- CHECK THIS
-    raw  = add_cyclic_time(raw)
+    raw  = extract_features(raw)
     vec  = np.array([[raw.get(c, 0.0) for c in cols]])
     vec_scaled = cluster_scaler.transform(vec) # This fails if shapes don't match
     return int(kmeans_model.predict(vec_scaled)[0])
@@ -290,7 +350,7 @@ def recommend_from_raw(raw: dict, k: int = 5) -> dict:
       5. Cosine similarity against all stored test-set profiles
       6. Top-k neighbours → majority vote → recommendation
     """
-    raw = add_cyclic_time(raw)
+    raw = extract_features(raw)
 
     pred_d = predict_demand(raw)
     pred_p = predict_price(raw)

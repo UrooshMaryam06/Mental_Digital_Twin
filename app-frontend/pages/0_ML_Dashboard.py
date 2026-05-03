@@ -10,6 +10,7 @@ Tabs:
 
 from __future__ import annotations
 
+import datetime
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -39,54 +40,47 @@ st.caption("Endpoint-aligned dashboard using Streamlit + FastAPI")
 
 
 def _inputs(prefix: str) -> dict:
-    c1, c2, c3, c4 = st.columns(4)
+    st.markdown("### Raw Features Input")
+    c1, c2, c3 = st.columns(3)
     with c1:
-        hour = st.slider("Hour", 0, 23, 12, key=f"{prefix}_hour")
-        day_of_week = st.slider("Day of week", 0, 6, 2, key=f"{prefix}_dow")
-        month = st.slider("Month", 1, 12, 6, key=f"{prefix}_month")
-        is_weekend = st.selectbox("Weekend", [0, 1], index=0, key=f"{prefix}_weekend")
+        st.markdown("##### Target Timestamp")
+        date_val = st.date_input("Date", datetime.date(2018, 5, 1), key=f"{prefix}_date")
+        time_val = st.time_input("Time", datetime.time(12, 0), key=f"{prefix}_time")
+        timestamp = f"{date_val} {time_val}"
     with c2:
-        demand_lag_1h = st.number_input("Demand lag 1h", 0.0, 50000.0, 28500.0, step=100.0, key=f"{prefix}_d1")
-        demand_lag_24h = st.number_input("Demand lag 24h", 0.0, 50000.0, 29000.0, step=100.0, key=f"{prefix}_d24")
-        demand_lag_168h = st.number_input("Demand lag 168h", 0.0, 50000.0, 27800.0, step=100.0, key=f"{prefix}_d168")
+        st.markdown("##### Renewable Gen (MW)")
+        solar = st.number_input("Solar (MW)", 0.0, 20000.0, 5000.0, step=100.0, key=f"{prefix}_solar")
+        wind = st.number_input("Wind Onshore (MW)", 0.0, 30000.0, 8000.0, step=100.0, key=f"{prefix}_wind")
+        hydro = st.number_input("Hydro Water Res. (MW)", 0.0, 20000.0, 2000.0, step=100.0, key=f"{prefix}_hydro")
     with c3:
-        price_lag_1h = st.number_input("Price lag 1h", 0.0, 1000.0, 52.3, step=0.1, key=f"{prefix}_p1")
-        price_lag_24h = st.number_input("Price lag 24h", 0.0, 1000.0, 48.7, step=0.1, key=f"{prefix}_p24")
-        demand_avg_24h = st.number_input("Demand avg 24h", 0.0, 50000.0, 28200.0, step=100.0, key=f"{prefix}_davg")
-        price_avg_24h = st.number_input("Price avg 24h", 0.0, 1000.0, 50.1, step=0.1, key=f"{prefix}_pavg")
-    with c4:
-        solar = st.number_input("Solar", 0.0, 20000.0, 5000.0, step=100.0, key=f"{prefix}_solar")
-        wind = st.number_input("Wind", 0.0, 30000.0, 8000.0, step=100.0, key=f"{prefix}_wind")
-        gas = st.number_input("Fossil gas", 0.0, 20000.0, 4000.0, step=100.0, key=f"{prefix}_gas")
-        coal = st.number_input("Fossil coal", 0.0, 20000.0, 1500.0, step=100.0, key=f"{prefix}_coal")
-        hydro = st.number_input("Hydro", 0.0, 20000.0, 2000.0, step=100.0, key=f"{prefix}_hydro")
-        nuclear = st.number_input("Nuclear", 0.0, 20000.0, 7000.0, step=100.0, key=f"{prefix}_nuclear")
+        st.markdown("##### Non-Renewable (MW)")
+        gas = st.number_input("Fossil Gas (MW)", 0.0, 20000.0, 4000.0, step=100.0, key=f"{prefix}_gas")
+        coal = st.number_input("Fossil Hard Coal (MW)", 0.0, 20000.0, 1500.0, step=100.0, key=f"{prefix}_coal")
+        nuclear = st.number_input("Nuclear (MW)", 0.0, 20000.0, 7000.0, step=100.0, key=f"{prefix}_nuclear")
 
-    renewable = solar + wind + hydro
-    fossil = gas + coal
-    total_gen = renewable + fossil + nuclear
-    renewable_pct = (renewable / total_gen * 100.0) if total_gen else 0.0
+    st.markdown("##### External Forecasts")
+    fc1, fc2, fc3, fc4 = st.columns(4)
+    with fc1:
+        fc_wind = st.number_input("Forecast Wind Onshore (MW)", 0.0, 30000.0, 8000.0, step=100.0, key=f"{prefix}_fc_wind")
+    with fc2:
+        fc_solar = st.number_input("Forecast Solar (MW)", 0.0, 20000.0, 5000.0, step=100.0, key=f"{prefix}_fc_solar")
+    with fc3:
+        fc_load = st.number_input("Total Load Forecast (MW)", 0.0, 50000.0, 28000.0, step=100.0, key=f"{prefix}_fc_load")
+    with fc4:
+        fc_price = st.number_input("Price Day Ahead (EUR/MWh)", 0.0, 1000.0, 50.0, step=1.0, key=f"{prefix}_fc_price")
 
     return {
-        "hour": hour,
-        "day_of_week": day_of_week,
-        "month": month,
-        "is_weekend": int(is_weekend),
-        "demand_lag_1h": demand_lag_1h,
-        "demand_lag_24h": demand_lag_24h,
-        "demand_lag_168h": demand_lag_168h,
-        "price_lag_1h": price_lag_1h,
-        "price_lag_24h": price_lag_24h,
-        "renewable": renewable,
-        "fossil": fossil,
-        "nuclear": nuclear,
-        "renewable_pct": renewable_pct,
-        "demand_avg_24h": demand_avg_24h,
-        "price_avg_24h": price_avg_24h,
-        "forecast wind onshore day ahead": wind,
-        "forecast solar day ahead": solar,
-        "total load forecast": demand_avg_24h,
-        "price day ahead": price_avg_24h,
+        "timestamp": timestamp,
+        "generation solar": solar,
+        "generation wind onshore": wind,
+        "generation nuclear": nuclear,
+        "generation fossil gas": gas,
+        "generation fossil hard coal": coal,
+        "generation hydro water reservoir": hydro,
+        "forecast wind onshore day ahead": fc_wind,
+        "forecast solar day ahead": fc_solar,
+        "total load forecast": fc_load,
+        "price day ahead": fc_price
     }
 
 
@@ -128,17 +122,21 @@ with tabs[1]:
         rows = []
         for step in range(12):
             p = dict(payload)
-            hour = (int(payload["hour"]) + step) % 24
-            day_offset = (int(payload["hour"]) + step) // 24
-            p["hour"] = hour
-            p["day_of_week"] = (int(payload["day_of_week"]) + day_offset) % 7
+            try:
+                base_dt = datetime.datetime.strptime(p["timestamp"], "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                base_dt = datetime.datetime.strptime(p["timestamp"], "%Y-%m-%d")
+            
+            step_dt = base_dt + datetime.timedelta(hours=step)
+            p["timestamp"] = step_dt.strftime("%Y-%m-%d %H:%M:%S")
+            
             res = predict_both(p)
             if not res:
                 continue
             rows.append(
                 {
                     "step": step + 1,
-                    "hour": hour,
+                    "hour": step_dt.hour,
                     "demand": float(res.get("predicted_demand_12h_MW", 0.0)),
                     "price": float(res.get("predicted_price_12h_EUR", 0.0)),
                 }
