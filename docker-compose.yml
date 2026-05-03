@@ -3,7 +3,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: app-api/Dockerfile
+      dockerfile: Dockerfile
     container_name: energy_forecast_api
     ports:
       - "8000:8000"
@@ -13,28 +13,16 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: app-frontend/Dockerfile
+      context: ./app-frontend
+      dockerfile: Dockerfile
     container_name: energy_forecast_frontend
     ports:
       - "8501:8501"
     environment:
-      API_BASE_URL: http://api:8000
+      - API_BASE_URL=http://api:8000
+      - DATA_PATH=/app/energy_dataset.csv
     volumes:
-      - ./artifacts:/app/artifacts
-    depends_on:
-      - api
-    restart: unless-stopped
-
-  monitoring:
-    build:
-      context: .
-      dockerfile: app-monitoring/Dockerfile
-    container_name: energy_forecast_monitoring
-    ports:
-      - "8502:8502"
-    volumes:
-      - ./artifacts:/app/artifacts
+      - ./energy_dataset.csv:/app/energy_dataset.csv
     depends_on:
       - api
     restart: unless-stopped

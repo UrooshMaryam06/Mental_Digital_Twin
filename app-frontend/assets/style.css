@@ -1,123 +1,41 @@
-/* Dark industrial theme for Electricity Forecasting Dashboard */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap');
 
-/* Hide Streamlit default branding */
-#MainMenu { visibility: hidden; }
-footer    { visibility: hidden; }
-header    { visibility: hidden; }
-
-/* Global background */
-.stApp {
+html, body, [class*="css"] {
+    font-family: 'IBM Plex Mono', monospace;
     background-color: #0f1117;
     color: #e8eaf0;
 }
 
-/* Sidebar */
-[data-testid="stSidebar"] {
+.stApp {
+    background-color: #0f1117;
+}
+
+.stMetric {
+    background-color: #1e2130;
+    border: 1px solid #2e3347;
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.stButton > button {
+    background-color: #26c6da;
+    color: #0f1117;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.stButton > button:hover {
+    background-color: #00acc1;
+}
+
+div[data-testid="stSidebar"] {
     background-color: #1a1d27;
     border-right: 1px solid #2e3347;
 }
 
-/* Metric cards */
-[data-testid="stMetric"] {
-    background-color: #1e2130;
+.stDataFrame {
     border: 1px solid #2e3347;
-    border-radius: 6px;
-    padding: 16px;
-}
-
-[data-testid="stMetricLabel"] {
-    color: #8b91a8 !important;
-    font-size: 11px !important;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-family: 'IBM Plex Mono', monospace;
-}
-
-[data-testid="stMetricValue"] {
-    color: #e8eaf0 !important;
-    font-size: 24px !important;
-    font-family: 'IBM Plex Mono', monospace;
-}
-
-/* Tab bar */
-[data-baseweb="tab-list"] {
-    gap: 4px;
-    background-color: #1a1d27;
-    border-bottom: 1px solid #2e3347;
-}
-
-[data-baseweb="tab"] {
-    background-color: transparent;
-    color: #8b91a8;
-    border: none;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 8px 16px;
-}
-
-[aria-selected="true"][data-baseweb="tab"] {
-    color: #f5a623;
-    border-bottom: 2px solid #f5a623;
-    background-color: transparent;
-}
-
-/* Dataframes */
-[data-testid="stDataFrame"] {
-    background-color: #1e2130;
-    border: 1px solid #2e3347;
-    border-radius: 4px;
-}
-
-/* Section headers */
-h1, h2, h3 {
-    font-family: 'IBM Plex Mono', monospace;
-    color: #e8eaf0;
-    letter-spacing: -0.02em;
-}
-
-/* Dividers */
-hr {
-    border-color: #2e3347;
-}
-
-/* Alert/info boxes */
-[data-testid="stAlert"] {
-    background-color: #1e2130;
-    border: 1px solid #2e3347;
-}
-
-/* Buttons */
-.stButton > button {
-    background-color: #1e2130;
-    color: #f5a623;
-    border: 1px solid #f5a623;
-    border-radius: 4px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    transition: background-color 0.15s;
-}
-.stButton > button:hover {
-    background-color: #f5a623;
-    color: #0f1117;
-}
-
-/* Selectbox / sliders */
-[data-testid="stSelectbox"] label,
-[data-testid="stSlider"] label,
-[data-testid="stNumberInput"] label {
-    color: #8b91a8;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-/* Code blocks */
-code {
-    background-color: #1a1d27;
-    color: #26c6da;
-    border: 1px solid #2e3347;
+    border-radius: 8px;
 }

@@ -1,18 +1,8 @@
-"""
-Central configuration for the Electricity Forecasting Dashboard.
-All environment-specific values live here.
-"""
-
 import os
 
-# ── API ───────────────────────────────────────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-API_TIMEOUT  = 10   # seconds
+API_TIMEOUT  = 10
 
-# ── Dataset ───────────────────────────────────────────────────────────────────
-DATA_PATH = os.getenv("DATA_PATH", "../energy_dataset.csv")
-
-# ── Color palette (dark industrial theme) ────────────────────────────────────
 COLORS = {
     "bg_primary":    "#0f1117",
     "bg_secondary":  "#1a1d27",
@@ -31,24 +21,17 @@ COLORS = {
     "high_color":    "#ef5350",
 }
 
+DATA_PATH = os.getenv("DATA_PATH", "../energy_dataset.csv")
+
 MODEL_NAMES = [
-    "Linear Regression",
-    "Bayesian Ridge",
-    "KNN",
-    "Decision Tree",
-    "Random Forest",
-    "XGBoost",
-    "SVR",
-    "ANN",
+    "Linear Regression", "Bayesian Ridge", "KNN",
+    "Decision Tree", "Random Forest", "XGBoost", "SVR", "ANN",
 ]
 
 GENERATION_FEATURES = [
-    "generation biomass",
-    "generation fossil gas",
+    "generation biomass", "generation fossil gas",
     "generation fossil hard coal",
     "generation hydro run-of-river and poundage",
-    "generation hydro water reservoir",
-    "generation nuclear",
-    "generation solar",
-    "generation wind onshore",
+    "generation hydro water reservoir", "generation nuclear",
+    "generation solar", "generation wind onshore",
 ]

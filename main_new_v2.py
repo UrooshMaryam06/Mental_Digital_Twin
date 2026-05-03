@@ -287,15 +287,32 @@ def extract_features(raw_input: dict) -> dict:
         except Exception:
             out['demand_avg_24h'] = 28000.0
             out['price_avg_24h'] = 50.0
+
+        idx_12h = ts - pd.Timedelta(hours=12)
+        out['demand_lag_12h'] = get_hist_val(idx_12h, 'total load actual', 28000.0)
+        out['price_lag_12h']  = get_hist_val(idx_12h, 'price actual', 50.0)
     else:
         out['demand_lag_1h'] = 28000.0
         out['demand_lag_24h'] = 28000.0
         out['demand_lag_168h'] = 28000.0
+        out['demand_lag_12h'] = 28000.0
         out['price_lag_1h'] = 50.0
         out['price_lag_24h'] = 50.0
+        out['price_lag_12h'] = 50.0
         out['demand_avg_24h'] = 28000.0
         out['price_avg_24h'] = 50.0
-        
+
+    # Forecast fields — use provided values or fall back to computed estimates
+    out['forecast wind onshore day ahead'] = raw_input.get('forecast wind onshore day ahead',
+                                              raw_input.get('forecast_wind_onshore_day_ahead',
+                                              out.get('renewable', 0.0) * 0.4))
+    out['forecast solar day ahead']        = raw_input.get('forecast solar day ahead',
+                                              raw_input.get('forecast_solar_day_ahead',
+                                              out.get('renewable', 0.0) * 0.3))
+    out['total load forecast']             = raw_input.get('total load forecast',
+                                              raw_input.get('total_load_forecast',
+                                              out.get('demand_lag_1h', 28000.0)))
+
     return out
 
 def build_feature_row(raw: dict, feature_list: list) -> pd.DataFrame:
@@ -714,10 +731,10 @@ def model_comparison():
         "demand_features"         : demand_features,
         "price_features"          : price_features,
         "thresholds"              : {
-            "demand_low_below_MW"    : round(thresholds['d33'], 0),
-            "demand_high_above_MW"   : round(thresholds['d66'], 0),
-            "price_low_below_EUR"    : round(thresholds['p33'], 2),
-            "price_high_above_EUR"   : round(thresholds['p66'], 2),
+            "demand_low_below_MW"    : round(float(thresholds['d33']), 0) if np.isfinite(float(thresholds['d33'])) else 0,
+            "demand_high_above_MW"   : round(float(thresholds['d66']), 0) if np.isfinite(float(thresholds['d66'])) else 0,
+            "price_low_below_EUR"    : round(float(thresholds['p33']), 2) if np.isfinite(float(thresholds['p33'])) else 0,
+            "price_high_above_EUR"   : round(float(thresholds['p66']), 2) if np.isfinite(float(thresholds['p66'])) else 0,
         },
     }
 
@@ -727,7 +744,7 @@ def model_comparison_metrics():
     """Return per-model performance metrics read from artifacts/model_comparison.csv."""
     csv_path = os.path.join(ARTIFACTS, 'model_comparison.csv')
     if not os.path.exists(csv_path):
-        raise HTTPException(status_code=404, detail="model_comparison.csv not found in artifacts")
+                return []
     df = pd.read_csv(csv_path)
     # Convert to dict: { model_name: {metric: value, ...}, ... }
     out = {}
