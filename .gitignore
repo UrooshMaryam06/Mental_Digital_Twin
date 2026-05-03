@@ -1,3 +1,14 @@
-artifacts/
+# Virtual environments
 .venv/
 mlenv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# MLOps / project artifacts
+artifacts/
+
+# Optional but recommended
+.ipynb_checkpoints/
+.env
